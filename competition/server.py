@@ -28,8 +28,17 @@ def network_portrayal(G):
 
 network = NetworkModule(network_portrayal, 500, 500)
 chart = ChartModule([
-    {"Label": "Leaders", "Color": "#FF0000"},
-    {"Label": "Followers", "Color": "#008000"}
+    # {"Label": "Leaders", "Color": "#FF0000"},
+    # {"Label": "Followers", "Color": "#008000"},
+    {"Label": "Innovating", "Color": "#0000FF"},
+    # {"Label": "Top 1/3", "Color": "#FFD700"},
+    # {"Label": "Middle 1/3", "Color": "#87CEEB"},
+    # {"Label": "Bottom 1/3", "Color": "#D3D3D3"},
+
+])
+
+skewness_chart = ChartModule([
+    {"Label": "TAR Skewness", "Color": "#FFA500"},
 ])
 
 model_params = {
@@ -40,6 +49,6 @@ model_params = {
     "network_effect": mesa.visualization.Slider("Network Effect", 0.5, 0.0, 1.0, 0.1),
 }
 
-server = ModularServer(InnovationModel, [network, chart], "Innovation Model", model_params)
+server = ModularServer(InnovationModel, [network, chart, skewness_chart], "Innovation Model", model_params)
 server.port = 8521
 
