@@ -1,7 +1,8 @@
 import mesa
 from mesa.visualization.modules import NetworkModule, ChartModule, TextElement
 from mesa.visualization.ModularVisualization import ModularServer
-from competition.model import InnovationModel, State, calculate_equal_intervals  # Import the function
+from mesa.visualization.UserParam import Slider, Choice
+from competition.model import InnovationModel, State, calculate_equal_intervals
 
 def network_portrayal(G):
     def node_color(agent):
@@ -31,6 +32,13 @@ class IntervalText(TextElement):
         counts = calculate_equal_intervals(model)
         return f"0-20th Interval: {counts[0]}<br>20-40th Interval: {counts[1]}<br>40-60th Interval: {counts[2]}<br>60-80th Interval: {counts[3]}<br>80-100th Interval: {counts[4]}"
 
+class StaticTextLabel(TextElement):
+    def __init__(self, text):
+        self.text = text
+
+    def render(self, model):
+        return self.text
+
 network = NetworkModule(network_portrayal, 500, 500)
 chart = ChartModule([
     {"Label": "Innovating", "Color": "#0000FF"},
@@ -48,12 +56,18 @@ skewness_chart = ChartModule([
     {"Label": "TAR Skewness", "Color": "#FFA500"},
 ])
 
+outcome_label = StaticTextLabel("Outcome of Innovation")
+
 model_params = {
-    "num_firms": mesa.visualization.Slider("Number of firms", 10, 10, 100, 1),
-    "avg_node_degree": mesa.visualization.Slider("Avg Node Degree", 3, 3, 8, 1),
-    "baseline_success_prob": mesa.visualization.Slider("Baseline Success Probability", 0.05, 0.0, 1.0, 0.01),
-    "innovation_gap": mesa.visualization.Slider("Innovation Gap", 20, 1, 100, 1),
-    "network_effect": mesa.visualization.Slider("Network Effect", 0.5, 0.0, 1.0, 0.1),
+    "num_firms": Slider("Number of firms", 50, 10, 100, 1),
+    "avg_node_degree": Slider("Avg Node Degree", 3, 3, 8, 1),
+    "baseline_success_prob": Slider("Baseline Success Probability", 0.5, 0.0, 1.0, 0.01),
+    "innovation_gap": Slider("Innovation Gap", 30, 1, 100, 1),
+    "network_effect": Slider("Network Effect", 0.5, 0.0, 1.0, 0.1),
+    "distribution": Choice("Initial TAR Distribution", value="normal", choices=["normal", "left_skewed", "right_skewed"]),
+    # "outcome_label": outcome_label,
+    "tar_gain": Slider("TAR Increment", 5, 1, 10, 1),
+    "success_prob_adjustment": Slider("Success Probability Change", 0.005, 0.001, 0.01, 0.001),
 }
 
 interval_text = IntervalText()
