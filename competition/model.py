@@ -1,4 +1,3 @@
-
 import math
 import mesa
 import networkx as nx
@@ -19,27 +18,33 @@ def calculate_market_average_tar(model):
     total_tar = sum(agent.tar for agent in model.schedule.agents)
     return total_tar / len(model.schedule.agents)
 
-# def calculate_tar_thresholds(model):
-#     tar_values = [agent.tar for agent in model.schedule.agents]
-#     tar_values.sort()
-#     n = len(tar_values)
-#     lower_third_threshold = tar_values[int(n / 3)]
-#     upper_third_threshold = tar_values[int(2 * n / 3)]
-#     return lower_third_threshold, upper_third_threshold
+def calculate_equal_intervals(model):
+    tar_values = [agent.tar for agent in model.schedule.agents]
+    min_tar, max_tar = min(tar_values), max(tar_values)
+    bin_size = (max_tar - min_tar) / 5  # Divide the range into 5 equal sections
+    thresholds = [min_tar + bin_size * i for i in range(1, 5)]
+    counts = [0] * 5
+    
+    for agent in model.schedule.agents:
+        if agent.tar <= thresholds[0]:
+            counts[0] += 1
+        elif agent.tar <= thresholds[1]:
+            counts[1] += 1
+        elif agent.tar <= thresholds[2]:
+            counts[2] += 1
+        elif agent.tar <= thresholds[3]:
+            counts[3] += 1
+        else:
+            counts[4] += 1
 
-# def count_tar_segments(model):
-#     lower_third_threshold, upper_third_threshold = calculate_tar_thresholds(model)
-#     top_1_3 = sum(1 for agent in model.schedule.agents if agent.tar > upper_third_threshold)
-#     middle_1_3 = sum(1 for agent in model.schedule.agents if lower_third_threshold < agent.tar <= upper_third_threshold)
-#     bottom_1_3 = sum(1 for agent in model.schedule.agents if agent.tar <= lower_third_threshold)
-#     return top_1_3, middle_1_3, bottom_1_3
+    return counts
 
 def calculate_tar_skewness(model):
     tar_values = [agent.tar for agent in model.schedule.agents]
     return skew(tar_values)
-    
+
 class InnovationModel(mesa.Model):
-    def __init__(self, num_firms=10, avg_node_degree=3, initial_leader_fraction=0.5, 
+    def __init__(self, num_firms=10, avg_node_degree=3, initial_leader_fraction=0.5,
                  baseline_success_prob=0.05, innovation_gap=20, network_effect=0.5):
         super().__init__()
         self.num_firms = num_firms
@@ -50,23 +55,23 @@ class InnovationModel(mesa.Model):
         self.G = nx.erdos_renyi_graph(n=self.num_firms, p=prob)
         self.grid = mesa.space.NetworkGrid(self.G)
         self.schedule = mesa.time.RandomActivation(self)
-        
+
         for i, node in enumerate(self.G.nodes()):
             tar = self.random.uniform(0, 100)
             state = State.LEADER if tar > 50 else State.FOLLOWER
             a = FirmAgent(i, self, state, tar)
             self.schedule.add(a)
             self.grid.place_agent(a, node)
-        
+
         self.datacollector = mesa.DataCollector(
             {
-                # "Leaders": lambda m: number_state(m, State.LEADER),
-                # "Followers": lambda m: number_state(m, State.FOLLOWER),
                 "Innovating": number_deciding_to_innovate,
-                # "Top 1/3": lambda m: count_tar_segments(m)[0],
-                # "Middle 1/3": lambda m: count_tar_segments(m)[1],
-                # "Bottom 1/3": lambda m: count_tar_segments(m)[2],
                 "TAR Skewness": calculate_tar_skewness,
+                "0-20th Interval": lambda m: calculate_equal_intervals(m)[0],
+                "20-40th Interval": lambda m: calculate_equal_intervals(m)[1],
+                "40-60th Interval": lambda m: calculate_equal_intervals(m)[2],
+                "60-80th Interval": lambda m: calculate_equal_intervals(m)[3],
+                "80-100th Interval": lambda m: calculate_equal_intervals(m)[4],
             }
         )
         self.running = True
@@ -92,9 +97,9 @@ class FirmAgent(mesa.Agent):
         if abs(self.tar - market_avg_tar) < self.model.innovation_gap:
             self.decides_to_innovate = True
             if self.model.random.random() < self.success_prob:
-                self.tar += 1
+                self.tar += 5
                 self.success_prob *= (1 + 0.005)
             else:
-                self.success_prob *= (1 - 0.005)  # Reduce success probability by 0.5% if failed
+                self.success_prob *= (1 - 0.005)
         else:
             self.decides_to_innovate = False

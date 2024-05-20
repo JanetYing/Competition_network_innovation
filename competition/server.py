@@ -1,7 +1,7 @@
 import mesa
-from mesa.visualization.modules import NetworkModule, ChartModule
+from mesa.visualization.modules import NetworkModule, ChartModule, TextElement
 from mesa.visualization.ModularVisualization import ModularServer
-from competition.model import InnovationModel, State
+from competition.model import InnovationModel, State, calculate_equal_intervals  # Import the function
 
 def network_portrayal(G):
     def node_color(agent):
@@ -26,15 +26,22 @@ def network_portrayal(G):
 
     return portrayal
 
+class IntervalText(TextElement):
+    def render(self, model):
+        counts = calculate_equal_intervals(model)
+        return f"0-20th Interval: {counts[0]}<br>20-40th Interval: {counts[1]}<br>40-60th Interval: {counts[2]}<br>60-80th Interval: {counts[3]}<br>80-100th Interval: {counts[4]}"
+
 network = NetworkModule(network_portrayal, 500, 500)
 chart = ChartModule([
-    # {"Label": "Leaders", "Color": "#FF0000"},
-    # {"Label": "Followers", "Color": "#008000"},
     {"Label": "Innovating", "Color": "#0000FF"},
-    # {"Label": "Top 1/3", "Color": "#FFD700"},
-    # {"Label": "Middle 1/3", "Color": "#87CEEB"},
-    # {"Label": "Bottom 1/3", "Color": "#D3D3D3"},
+])
 
+interval_chart = ChartModule([
+    {"Label": "0-20th Interval", "Color": "#FFD700"},
+    {"Label": "20-40th Interval", "Color": "#87CEEB"},
+    {"Label": "40-60th Interval", "Color": "#32CD32"},
+    {"Label": "60-80th Interval", "Color": "#FF69B4"},
+    {"Label": "80-100th Interval", "Color": "#8A2BE2"},
 ])
 
 skewness_chart = ChartModule([
@@ -49,6 +56,7 @@ model_params = {
     "network_effect": mesa.visualization.Slider("Network Effect", 0.5, 0.0, 1.0, 0.1),
 }
 
-server = ModularServer(InnovationModel, [network, chart, skewness_chart], "Innovation Model", model_params)
-server.port = 8521
+interval_text = IntervalText()
 
+server = ModularServer(InnovationModel, [network, chart, skewness_chart, interval_chart, interval_text], "Innovation Model", model_params)
+server.port = 8521
