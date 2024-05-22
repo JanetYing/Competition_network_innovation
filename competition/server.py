@@ -6,7 +6,12 @@ from competition.model import InnovationModel, State, calculate_equal_intervals
 
 def network_portrayal(G):
     def node_color(agent):
-        return {State.LEADER: "#FF0000", State.FOLLOWER: "#008000"}.get(agent.state, "#808080")
+        if not agent.active:
+            return "#D3D3D3"  # Light gray for inactive firms
+        interval = agent.interval if agent.interval is not None else 0
+        color_intensity = max(64, 255 - (interval * 64))  # Ensure color intensity is within the valid range and not too light
+        # Create shades of blue that don't turn white
+        return f"rgb(0, 0, {color_intensity})"  # Shades of blue
 
     portrayal = {"nodes": [], "edges": []}
     for node, agents in G.nodes.data("agent"):
@@ -14,14 +19,14 @@ def network_portrayal(G):
             "id": node,
             "color": node_color(agents[0]),
             "size": 6,
-            "tooltip": f"id: {agents[0].unique_id}<br>state: {agents[0].state.name}<br>tar: {agents[0].tar:.2f}"
+            "tooltip": f"id: {agents[0].unique_id}<br>state: {agents[0].state.name}<br>tar: {agents[0].tar:.2f}<br>active: {agents[0].active}"
         })
 
     for source, target in G.edges:
         portrayal["edges"].append({
             "source": source,
             "target": target,
-            "color": "#e8e8e8",
+            "color": "#808080",
             "width": 2
         })
 
@@ -30,42 +35,31 @@ def network_portrayal(G):
 class IntervalText(TextElement):
     def render(self, model):
         counts = calculate_equal_intervals(model)
-        return f"0-20th Interval: {counts[0]}<br>20-40th Interval: {counts[1]}<br>40-60th Interval: {counts[2]}<br>60-80th Interval: {counts[3]}<br>80-100th Interval: {counts[4]}"
-
-class StaticTextLabel(TextElement):
-    def __init__(self, text):
-        self.text = text
-
-    def render(self, model):
-        return self.text
+        return f"0-25th Interval: {counts[0]}<br>25-50th Interval: {counts[1]}<br>50-75th Interval: {counts[2]}<br>75-100th Interval: {counts[3]}"
 
 network = NetworkModule(network_portrayal, 500, 500)
 chart = ChartModule([
-    {"Label": "Innovating", "Color": "#0000FF"},
+    {"Label": "Innovating", "Color": "#000000"},
 ])
 
 interval_chart = ChartModule([
-    {"Label": "0-20th Interval", "Color": "#FFD700"},
-    {"Label": "20-40th Interval", "Color": "#87CEEB"},
-    {"Label": "40-60th Interval", "Color": "#32CD32"},
-    {"Label": "60-80th Interval", "Color": "#FF69B4"},
-    {"Label": "80-100th Interval", "Color": "#8A2BE2"},
+    {"Label": "0-25th Interval", "Color": "#000000"},
+    {"Label": "25-50th Interval", "Color": "#666666"},
+    {"Label": "50-75th Interval", "Color": "#999999"},
+    {"Label": "75-100th Interval", "Color": "#CCCCCC"},
 ])
 
 skewness_chart = ChartModule([
-    {"Label": "TAR Skewness", "Color": "#FFA500"},
+    {"Label": "TAR Skewness", "Color": "#000000"},
 ])
-
-outcome_label = StaticTextLabel("Outcome of Innovation")
 
 model_params = {
     "num_firms": Slider("Number of firms", 50, 10, 100, 1),
     "avg_node_degree": Slider("Avg Node Degree", 3, 3, 8, 1),
     "baseline_success_prob": Slider("Baseline Success Probability", 0.5, 0.0, 1.0, 0.01),
-    "innovation_gap": Slider("Innovation Gap", 30, 1, 100, 1),
-    "network_effect": Slider("Network Effect", 0.5, 0.0, 1.0, 0.1),
+    "innovation_gap": Slider("Innovation Gap", 30, 1, 60, 1),
+    "network_effect": Slider("Network Effect", 0.03, 0.0, 0.05, 0.005),
     "distribution": Choice("Initial TAR Distribution", value="normal", choices=["normal", "left_skewed", "right_skewed"]),
-    # "outcome_label": outcome_label,
     "tar_gain": Slider("TAR Increment", 5, 1, 10, 1),
     "success_prob_adjustment": Slider("Success Probability Change", 0.005, 0.001, 0.01, 0.001),
 }

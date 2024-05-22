@@ -10,39 +10,46 @@ class State(Enum):
     FOLLOWER = 1
 
 def number_state(model, state):
-    return sum(1 for a in model.schedule.agents if a.state is state)
+    return sum(1 for a in model.schedule.agents if a.state is state and a.active)
 
 def number_deciding_to_innovate(model):
-    return sum(1 for a in model.schedule.agents if a.decides_to_innovate)
+    return sum(1 for a in model.schedule.agents if a.decides_to_innovate and a.active)
 
-def calculate_market_average_tar(model):
-    total_tar = sum(agent.tar for agent in model.schedule.agents)
-    return total_tar / len(model.schedule.agents)
+def calculate_market_median_tar(model):
+    active_agents = [agent for agent in model.schedule.agents if agent.active]
+    tar_values = [agent.tar for agent in active_agents]
+    return np.median(tar_values) if tar_values else 0
+
+def calculate_market_max_tar(model):
+    active_agents = [agent for agent in model.schedule.agents if agent.active]
+    return max(agent.tar for agent in active_agents) if active_agents else 0
 
 def calculate_equal_intervals(model):
-    tar_values = [agent.tar for agent in model.schedule.agents]
+    active_agents = [agent for agent in model.schedule.agents if agent.active]
+    tar_values = [agent.tar for agent in active_agents]
+    if not tar_values:
+        return [0] * 4
     min_tar, max_tar = min(tar_values), max(tar_values)
-    bin_size = (max_tar - min_tar) / 5  # Divide the range into 5 equal sections
-    thresholds = [min_tar + bin_size * i for i in range(1, 5)]
-    counts = [0] * 5
+    bin_size = (max_tar - min_tar) / 4  # Divide the range into 4 equal sections
+    thresholds = [min_tar + bin_size * i for i in range(1, 4)]
+    counts = [0] * 4
     
-    for agent in model.schedule.agents:
+    for agent in active_agents:
         if agent.tar <= thresholds[0]:
             counts[0] += 1
         elif agent.tar <= thresholds[1]:
             counts[1] += 1
         elif agent.tar <= thresholds[2]:
             counts[2] += 1
-        elif agent.tar <= thresholds[3]:
-            counts[3] += 1
         else:
-            counts[4] += 1
+            counts[3] += 1
 
     return counts
 
 def calculate_tar_skewness(model):
-    tar_values = [agent.tar for agent in model.schedule.agents]
-    return skew(tar_values)
+    active_agents = [agent for agent in model.schedule.agents if agent.active]
+    tar_values = [agent.tar for agent in active_agents]
+    return skew(tar_values) if tar_values else 0
 
 def get_interval(tar, thresholds):
     if tar <= thresholds[0]:
@@ -51,10 +58,8 @@ def get_interval(tar, thresholds):
         return 1
     elif tar <= thresholds[2]:
         return 2
-    elif tar <= thresholds[3]:
-        return 3
     else:
-        return 4
+        return 3
 
 def generate_tar_values(distribution, num_firms):
     if distribution == "left_skewed":
@@ -78,6 +83,7 @@ class InnovationModel(mesa.Model):
         self.distribution = distribution
         self.tar_gain = tar_gain
         self.success_prob_adjustment = success_prob_adjustment
+        self.step_count = 0  # Initialize step counter
         prob = avg_node_degree / self.num_firms
         self.G = nx.erdos_renyi_graph(n=self.num_firms, p=prob)
         self.grid = mesa.space.NetworkGrid(self.G)
@@ -94,28 +100,41 @@ class InnovationModel(mesa.Model):
             {
                 "Innovating": number_deciding_to_innovate,
                 "TAR Skewness": calculate_tar_skewness,
-                "0-20th Interval": lambda m: calculate_equal_intervals(m)[0],
-                "20-40th Interval": lambda m: calculate_equal_intervals(m)[1],
-                "40-60th Interval": lambda m: calculate_equal_intervals(m)[2],
-                "60-80th Interval": lambda m: calculate_equal_intervals(m)[3],
-                "80-100th Interval": lambda m: calculate_equal_intervals(m)[4],
+                "0-25th Interval": lambda m: calculate_equal_intervals(m)[0],
+                "25-50th Interval": lambda m: calculate_equal_intervals(m)[1],
+                "50-75th Interval": lambda m: calculate_equal_intervals(m)[2],
+                "75-100th Interval": lambda m: calculate_equal_intervals(m)[3],
             },
-            agent_reporters={"TAR": "tar", "Interval": lambda a: get_interval(a.tar, self.get_thresholds())}
+            agent_reporters={"TAR": "tar", "Interval": "interval"}
         )
         self.running = True
         self.datacollector.collect(self)
 
     def get_thresholds(self):
-        tar_values = [agent.tar for agent in self.schedule.agents]
+        active_agents = [agent for agent in self.schedule.agents if agent.active]
+        tar_values = [agent.tar for agent in active_agents]
+        if not tar_values:
+            return [0] * 3
         min_tar, max_tar = min(tar_values), max(tar_values)
-        bin_size = (max_tar - min_tar) / 5  # Divide the range into 5 equal sections
-        thresholds = [min_tar + bin_size * i for i in range(1, 5)]
+        bin_size = (max_tar - min_tar) / 4  # Divide the range into 4 equal sections
+        thresholds = [min_tar + bin_size * i for i in range(1, 4)]
         return thresholds
 
     def step(self):
+        self.step_count += 1  # Increment step counter
+        print(f"Step {self.step_count}")
+        
         # Update agent states based on current TAR values
+        thresholds = self.get_thresholds()
         for agent in self.schedule.agents:
             agent.state = State.LEADER if agent.tar > 50 else State.FOLLOWER
+            agent.interval = get_interval(agent.tar, thresholds)
+        
+        # Stop condition if active firms are less than or equal to 1/5 of total firms
+        active_agents = [agent for agent in self.schedule.agents if agent.active]
+        if len(active_agents) <= self.num_firms / 5:
+            self.running = False
+            return
         
         self.schedule.step()
         self.datacollector.collect(self)
@@ -127,28 +146,44 @@ class FirmAgent(mesa.Agent):
         self.tar = tar
         self.success_prob = model.baseline_success_prob
         self.decides_to_innovate = False
+        self.no_innovation_steps = 0  # Track consecutive non-innovation steps
+        self.active = True  # Track if the firm is active or inactive
+        self.interval = None  # Initialize interval attribute
 
     def step(self):
         self.make_innovation_decision()
 
     def make_innovation_decision(self):
-        market_avg_tar = calculate_market_average_tar(self.model)
-        if abs(self.tar - market_avg_tar) < self.model.innovation_gap:
+        market_median_tar = calculate_market_median_tar(self.model)
+        print(f"Step {self.model.step_count}, Firm {self.unique_id} TAR: {self.tar}, Median TAR: {market_median_tar}, Innovation Gap: {self.model.innovation_gap}")
+        if abs(self.tar - market_median_tar) < self.model.innovation_gap:
             self.decides_to_innovate = True
+            print(f"Step {self.model.step_count}, Firm {self.unique_id} decides to innovate")
             
             # Calculate network influence
             network_influence = 0
             for neighbor in self.model.grid.get_neighbors(self.pos, include_center=False):
                 if neighbor.tar > self.tar:
-                    network_influence += (neighbor.tar - self.tar)
+                    network_influence += (neighbor.tar - self.tar) / market_median_tar  # divide market median tar to scale the influence
             
             # Update success probability with network effect
             self.success_prob = self.model.baseline_success_prob * (1 + self.model.network_effect * network_influence)
+            print(f"Step {self.model.step_count}, Firm {self.unique_id} Network Influence: {network_influence}, Success Probability: {self.success_prob}")
             
             if self.model.random.random() < self.success_prob:
                 self.tar += self.model.tar_gain
                 self.success_prob *= (1 + self.model.success_prob_adjustment)
+                self.no_innovation_steps = 0  # Reset counter if innovating
+                print(f"Step {self.model.step_count}, Firm {self.unique_id} successfully innovates, new TAR: {self.tar}")
             else: 
                 self.success_prob *= (1 - self.model.success_prob_adjustment)
+                print(f"Step {self.model.step_count}, Firm {self.unique_id} fails to innovate, new Success Probability: {self.success_prob}")
         else:
             self.decides_to_innovate = False
+            self.no_innovation_steps += 1  # Increment counter if not innovating
+            print(f"Step {self.model.step_count}, Firm {self.unique_id} decides not to innovate")
+
+        # Mark firm as inactive if it hasn't innovated for 5 continuous steps
+        if self.no_innovation_steps >= 5:
+            self.active = False
+            print(f"Step {self.model.step_count}, Firm {self.unique_id} becomes inactive")
