@@ -61,7 +61,7 @@ model_params = {
     "network_effect": Slider("Network Effect", 0.03, 0.0, 0.05, 0.005),
     "distribution": Choice("Initial TAR Distribution", value="normal", choices=["normal", "left_skewed", "right_skewed"]),
     "tar_gain": Slider("TAR Increment", 5, 1, 10, 1),
-    "success_prob_adjustment": Slider("Success Probability Change", 0.005, 0.001, 0.01, 0.001),
+    "success_prob_adjustment": Slider("Success Probability Change", 0.08, 0.02, 0.15, 0.001),
 }
 
 interval_text = IntervalText()
