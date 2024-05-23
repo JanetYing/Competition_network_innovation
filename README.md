@@ -1,6 +1,6 @@
 # Competition, Networks, and Innovation
 
-**Author**: Janet Cao  
+Janet Cao  
 
 ## Description
 This project aims to simulate and analyze technological advancement/innovation within a competitive network of firms. Using an Agent-Based Model (ABM), the simulation explores the dynamics of network effects, innovation gaps, and other factors influencing firms' technological advancements.
