@@ -25,6 +25,7 @@ def generate_tar_values(distribution, num_firms):
         tar_values = np.clip(norm.rvs(loc=50, scale=15, size=num_firms), 0, 100)
     return tar_values
 
+
 class InnovationModel(mesa.Model):
     """
     An agent-based model simulating the innovation process among firms in a market.
@@ -66,14 +67,12 @@ class InnovationModel(mesa.Model):
         # Generate initial TAR values
         tar_values = generate_tar_values(self.distribution, self.num_firms)
         
-        # Initialize agents
         for i, (node, tar) in enumerate(zip(self.G.nodes(), tar_values)):
             state = State.LEADER if tar > calculate_market_median_tar(self) else State.FOLLOWER
             a = FirmAgent(i, self, state, tar)
             self.schedule.add(a)
             self.grid.place_agent(a, node)
 
-        # Data collector for various metrics
         self.datacollector = mesa.DataCollector(
             {
                 "Innovating": number_deciding_to_innovate,
@@ -100,7 +99,7 @@ class InnovationModel(mesa.Model):
         if not tar_values:
             return [0] * 3
         min_tar, max_tar = min(tar_values), max(tar_values)
-        bin_size = (max_tar - min_tar) / 4  # Divide the range into 4 equal sections
+        bin_size = (max_tar - min_tar) / 4  
         thresholds = [min_tar + bin_size * i for i in range(1, 4)]
         return thresholds
 

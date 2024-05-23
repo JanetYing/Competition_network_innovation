@@ -7,12 +7,14 @@ class State(Enum):
     LEADER = 0
     FOLLOWER = 1
 
+
 def number_deciding_to_innovate(model):
     """
     Calculate the number of active agents deciding to innovate.
 
     """
     return sum(1 for a in model.schedule.agents if a.decides_to_innovate and a.active)
+
 
 def calculate_market_median_tar(model):
     """
@@ -24,6 +26,7 @@ def calculate_market_median_tar(model):
     tar_values = [agent.tar for agent in active_agents]
     return np.median(tar_values) if tar_values else 0
 
+
 def calculate_market_max_tar(model):
     """
     Calculate the maximum TAR of active agents in the market.
@@ -31,6 +34,7 @@ def calculate_market_max_tar(model):
     """
     active_agents = [agent for agent in model.schedule.agents if agent.active]
     return max(agent.tar for agent in active_agents) if active_agents else 0
+
 
 def calculate_equal_intervals(model):
     """
@@ -52,6 +56,7 @@ def calculate_equal_intervals(model):
 
     return counts
 
+
 def calculate_tar_skewness(model):
     """
     Calculate the skewness of TAR values of active agents.
@@ -60,6 +65,7 @@ def calculate_tar_skewness(model):
     active_agents = [agent for agent in model.schedule.agents if agent.active]
     tar_values = [agent.tar for agent in active_agents]
     return skew(tar_values) if tar_values else 0
+
 
 def get_interval(tar, thresholds):
     """

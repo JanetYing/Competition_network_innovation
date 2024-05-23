@@ -44,7 +44,7 @@ class FirmAgent(mesa.Agent):
 
     def make_innovation_decision(self):
         """
-        Decide whether to innovate based on the current TAR value market median tar.
+        Decide whether to innovate based on the current TAR value and market median TAR.
         Update the TAR value and success probability accordingly.
         """
         market_median_tar = calculate_market_median_tar(self.model)
