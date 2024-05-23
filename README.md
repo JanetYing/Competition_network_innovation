@@ -56,7 +56,7 @@ To set up the project, follow these steps:
 - Perform batch runs for extensive data collection and analysis.
 
 ## Configuration
-Configuration options are defined within the simulation scripts and notebooks. Key parameters include:
+Main Configuration options are defined within the simulation scripts and notebooks. Key parameters include:
 - `avg_node_degree`: Average number of connections each firm has.
 - `network_effect`: Intensity of the network effect.
 - `innovation_gap`: Tolerance for the innovation gap.
